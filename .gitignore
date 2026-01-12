@@ -12,3 +12,4 @@ env/
 # IDEs
 .vscode/
 .idea/
+.env*.local

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Impostazioni Generali</h1>
+            </div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-right">
+                    <li class="breadcrumb-item"><a href="/">Home</a></li>
+                    <li class="breadcrumb-item active">Impostazioni</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <form method="POST">
+            <div class="card card-primary card-tabs">
+                <div class="card-header p-0 pt-1">
+                    <ul class="nav nav-tabs" id="settings-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="tab-traccar-link" data-toggle="pill" href="#tab-traccar"
+                                role="tab" aria-controls="tab-traccar" aria-selected="true">Server Traccar</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="tab-email-link" data-toggle="pill" href="#tab-email" role="tab"
+                                aria-controls="tab-email" aria-selected="false">Email / Gmail</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="tab-limits-link" data-toggle="pill" href="#tab-limits" role="tab"
+                                aria-controls="tab-limits" aria-selected="false">Limiti Velocità</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="settings-tabs-content">
+
+                        <!-- Traccar Tab -->
+                        <div class="tab-pane fade show active" id="tab-traccar" role="tabpanel"
+                            aria-labelledby="tab-traccar-link">
+                            <div class="form-group">
+                                <label for="traccar_url">Traccar URL</label>
+                                <input type="text" class="form-control" id="traccar_url" name="traccar_url"
+                                    value="{{ settings.traccar_url or '' }}" placeholder="http://demo.traccar.org">
+                                <small class="form-text text-muted">L'URL base del server Traccar API (es. http://... o
+                                    https://...)</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="traccar_user">Username</label>
+                                <input type="text" class="form-control" id="traccar_user" name="traccar_user"
+                                    value="{{ settings.traccar_user or '' }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="traccar_pass">Password</label>
+                                <input type="password" class="form-control" id="traccar_pass" name="traccar_pass"
+                                    value="{{ settings.traccar_pass or '' }}">
+                            </div>
+                        </div>
+
+                        <!-- Email Tab -->
+                        <div class="tab-pane fade" id="tab-email" role="tabpanel" aria-labelledby="tab-email-link">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Configura le credenziali Gmail per l'invio delle
+                                email di sistema.
+                            </div>
+                            <div class="form-group">
+                                <label for="gmail_user">Gmail Address</label>
+                                <input type="email" class="form-control" id="gmail_user" name="gmail_user"
+                                    value="{{ settings.gmail_user or '' }}" placeholder="example@gmail.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="gmail_pass">App Password</label>
+                                <input type="password" class="form-control" id="gmail_pass" name="gmail_pass"
+                                    value="{{ settings.gmail_pass or '' }}" placeholder="xxxx xxxx xxxx xxxx">
+                                <small class="form-text text-muted">Usa una <a
+                                        href="https://support.google.com/accounts/answer/185833" target="_blank">App
+                                        Password</a> di Google, non la tua password principale.</small>
+                            </div>
+                        </div>
+
+                        <!-- Limits Tab -->
+                        <div class="tab-pane fade" id="tab-limits" role="tabpanel" aria-labelledby="tab-limits-link">
+                            <div class="form-group">
+                                <label for="speed_limit_urban">Limite Urbano (km/h)</label>
+                                <input type="number" class="form-control" id="speed_limit_urban"
+                                    name="speed_limit_urban" value="{{ settings.speed_limit_urban }}" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="speed_limit_extra_urban">Limite Extra-Urbano (km/h)</label>
+                                <input type="number" class="form-control" id="speed_limit_extra_urban"
+                                    name="speed_limit_extra_urban" value="{{ settings.speed_limit_extra_urban }}"
+                                    min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="speed_limit_highway">Limite Autostrada (km/h)</label>
+                                <input type="number" class="form-control" id="speed_limit_highway"
+                                    name="speed_limit_highway" value="{{ settings.speed_limit_highway }}" min="0">
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salva
+                        Impostazioni</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

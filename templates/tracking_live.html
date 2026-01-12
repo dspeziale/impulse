@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block title %}Live Tracking{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.css" />
+<style>
+    /* Global Map Styles */
+    #map {
+        height: calc(100vh - 120px);
+        width: 100%;
+        border-radius: 4px;
+        min-height: 600px;
+    }
+
+    .leaflet-popup-content-wrapper {
+        border-radius: 8px;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .leaflet-popup-content {
+        margin: 0;
+        width: auto !important;
+    }
+
+    /* Custom Markers */
+    .vehicle-marker {
+        background-color: white;
+        border-radius: 50%;
+        border: 3px solid #6c757d;
+        /* Offline Gray */
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        font-size: 18px;
+        color: #343a40;
+        transition: all 0.3s ease;
+    }
+
+    .vehicle-marker.online {
+        border-color: #28a745;
+        /* Online Green */
+        color: #28a745;
+    }
+
+    .vehicle-marker.moving {
+        border-color: #007bff;
+        /* Moving Blue */
+        color: #007bff;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+        }
+    }
+
+    /* Popup Card */
+    .popup-card {
+        font-family: 'Source Sans Pro', sans-serif;
+        min-width: 260px;
+    }
+
+    .popup-header {
+        background: #f8f9fa;
+        padding: 10px 15px;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .popup-body {
+        padding: 15px;
+        font-size: 14px;
+    }
+
+    /* Force Fullscreen Button properties */
+    .leaflet-control-fullscreen a {
+        background: #fff;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: #444;
+        text-decoration: none;
+        background-image: none !important;
+        /* Kill any plugin BG */
+    }
+
+    /* Expand Icon */
+    .leaflet-control-fullscreen a::before {
+        content: "\f065";
+        /* fa-expand */
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+    }
+
+    /* Compress (Exit) Icon */
+    .leaflet-fullscreen-on .leaflet-control-fullscreen a::before {
+        content: "\f066";
+        /* fa-compress */
+    }
+
+    .leaflet-touch .leaflet-control-fullscreen a {
+        background-position: 0 0;
+        /* Override plugin default */
+    }
+
+    .status-badge {
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        color: white;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-left: auto;
+    }
+
+    .badge-online {
+        background-color: #28a745;
+    }
+
+    .badge-offline {
+        background-color: #6c757d;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        border-bottom: 1px dashed #eee;
+        padding-bottom: 4px;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .weather-box {
+        background: #e9ecef;
+        padding: 8px;
+        border-radius: 6px;
+        margin-top: 10px;
+        font-size: 13px;
+        text-align: center;
+    }
+</style>
+
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1 class="m-0">Live Tracking</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <button class="btn btn-primary btn-sm" onclick="syncVehicles()">
+                    <i class="fas fa-sync"></i> Sync Veicoli
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row h-100">
+
+            <!-- Sidebar / Controls -->
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="card-title"><i class="fas fa-satellite-dish"></i> Live Controls</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Vehicle Selector -->
+                        <div class="form-group">
+                            <label><i class="fas fa-car"></i> Veicolo</label>
+                            <select id="vehicleSelect" class="form-control" onchange="zoomToVehicle()">
+                                <option value="">Tutti</option>
+                            </select>
+                        </div>
+
+                        <!-- Status List -->
+                        <div class="form-group">
+                            <label>Stato Flotta</label>
+                            <div id="statusList" class="list-group list-group-flush border rounded"
+                                style="max-height: 250px; overflow-y: auto;">
+                                <div class="text-center p-3 text-muted">Caricamento...</div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- History Controls -->
+                        <h5 class="text-secondary"><i class="fas fa-history"></i> Storico</h5>
+                        <div class="form-group">
+                            <small>Dal:</small>
+                            <input type="datetime-local" id="historyStart" class="form-control form-control-sm">
+                        </div>
+                        <div class="form-group">
+                            <small>Al:</small>
+                            <input type="datetime-local" id="historyEnd" class="form-control form-control-sm">
+                        </div>
+
+                        <button class="btn btn-outline-primary btn-block btn-sm" onclick="loadHistory()">
+                            <i class="fas fa-route"></i> Carica Percorso
+                        </button>
+                        <button class="btn btn-success btn-block btn-sm mt-2" onclick="playHistory()" id="playBtn"
+                            disabled>
+                            <i class="fas fa-play"></i> Play
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="col-md-9">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body p-0">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.fullscreen@2.4.0/Control.FullScreen.js"></script>
+<script>
+    // --- MAP INITIALIZATION ---
+    var map = L.map('map').setView([41.9028, 12.4964], 10); // Rome
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add Fullscreen Control Manually
+    if (L.Control.FullScreen) {
+        L.control.fullscreen({
+            position: 'topleft',
+            title: 'Full Screen',
+            titleCancel: 'Exit Full Screen',
+            forceSeparateButton: true
+        }).addTo(map);
+        console.log("Fullscreen Control Added");
+    } else {
+        console.error("Leaflet Fullscreen Plugin NOT loaded");
+    }
+
+    // --- STATE VARIABLES ---
+    var markers = {};
+    var vehiclesData = [];
+    var historyLayer = L.layerGroup().addTo(map);
+    var historyMarker = null;
+    var playbackInterval = null;
+
+    // --- HELPERS ---
+    function getFaIcon(type) {
+        if (!type) return 'fa-car';
+        type = type.toLowerCase();
+        if (type.includes('furgone') || type.includes('van')) return 'fa-shuttle-van';
+        if (type.includes('camion') || type.includes('truck')) return 'fa-truck';
+        if (type.includes('scooter') || type.includes('moto')) return 'fa-motorcycle';
+        return 'fa-car';
+    }
+
+    function getMarkerClass(status, speed) {
+        let cls = 'vehicle-marker';
+        if (status === 'online') {
+            cls += ' online';
+            if (speed > 0) cls += ' moving';
+        }
+        return cls;
+    }
+
+    // --- MAIN API POLLING ---
+    function fetchLiveData() {
+        $.getJSON('/api/tracking/live_data')
+            .done(function (data) {
+                if (!Array.isArray(data)) {
+                    console.error("Data is not an array:", data);
+                    return;
+                }
+                vehiclesData = data;
+                updateMap(data);
+                updateList(data);
+                updateSelect(data);
+            })
+            .fail(function (jqxhr, textStatus, error) {
+                console.error("Fetch Error:", error);
+            });
+    }
+
+    function updateMap(data) {
+        // Cleanup old markers
+        let newIds = data.map(v => String(v.id));
+        for (let id in markers) {
+            if (!newIds.includes(String(id))) {
+                map.removeLayer(markers[id]);
+                delete markers[id];
+            }
+        }
+
+        data.forEach(v => {
+            let speedKmh = (v.speed * 1.852).toFixed(1);
+            let status = v.traccar_status || 'offline';
+            let iconClass = getMarkerClass(status, v.speed);
+            let faIcon = getFaIcon(v.tipo);
+
+            // Create DivIcon
+            let myIcon = L.divIcon({
+                className: iconClass,
+                html: `<i class="fas ${faIcon}"></i>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
+                popupAnchor: [0, -20]
+            });
+
+            // Update or Create Marker
+            if (markers[v.id]) {
+                markers[v.id].setLatLng([v.lat, v.lon]);
+                markers[v.id].setIcon(myIcon);
+                // Update content if needed, but usually expensive. 
+                // We rely on 'click' to refresh weather/time exactness.
+            } else {
+                let m = L.marker([v.lat, v.lon], { icon: myIcon }).addTo(map);
+
+                // Content for Popup
+                let addressContent = v.address ? v.address : '<span class="text-muted font-italic"><i class="fas fa-spinner fa-spin"></i> Ricerca...</span>';
+
+                let popupHtml = `
+                    <div class="popup-card">
+                        <div class="popup-header">
+                            <i class="fas ${faIcon} fa-lg"></i>
+                            <div>
+                                <div style="font-weight:bold; font-size:16px;">${v.targa}</div>
+                                <div class="text-muted" style="font-size:12px;">${v.name}</div>
+                            </div>
+                            <span class="status-badge ${status === 'online' ? 'badge-online' : 'badge-offline'}">${status}</span>
+                        </div>
+                        <div class="popup-body">
+                            <div class="info-row">
+                                <span class="text-secondary"><i class="fas fa-tachometer-alt"></i> Speed</span>
+                                <b>${speedKmh} km/h</b>
+                            </div>
+                            <div class="info-row">
+                                <span class="text-secondary"><i class="fas fa-map-marker-alt"></i> Address</span>
+                                <div id="address-box-${v.id}" style="text-align:right; max-width:160px; font-size:12px; white-space: normal;">
+                                    ${addressContent}
+                                </div>
+                            </div>
+                            <div class="info-row">
+                                <span class="text-secondary"><i class="far fa-clock"></i> Updated</span>
+                                <div style="font-size:12px;">${new Date(v.last_update).toLocaleTimeString()}</div>
+                            </div>
+                            
+                            <div id="weather-box-${v.id}" class="weather-box">
+                                <i class="fas fa-cloud-sun"></i> Clicca per meteo
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                m.bindPopup(popupHtml);
+                m.on('popupopen', () => {
+                    fetchWeather(v.lat, v.lon, v.id);
+                    if (!v.address) fetchAddress(v.lat, v.lon, v.id);
+                });
+                markers[v.id] = m;
+            }
+        });
+    }
+
+    function fetchAddress(lat, lon, id) {
+        let url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+        $.getJSON(url, function (data) {
+            if (data && data.display_name) {
+                // Shorten address: Road, City
+                let addr = data.address;
+                let short = (addr.road || '') + (addr.house_number ? ', ' + addr.house_number : '') + ', ' + (addr.city || addr.town || addr.village || '');
+                if (short.length < 5) short = data.display_name; // Fallback
+
+                $(`#address-box-${id}`).text(short);
+            } else {
+                $(`#address-box-${id}`).text("Indirizzo non trovato");
+            }
+        }).fail(function () {
+            $(`#address-box-${id}`).text("-");
+        });
+    }
+
+    function updateList(data) {
+        let html = '';
+        data.forEach(v => {
+            let color = (v.traccar_status === 'online') ? 'text-success' : 'text-danger';
+            html += `
+                <a href="#" class="list-group-item list-group-item-action p-2" onclick="zoomToId('${v.id}'); return false;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas ${getFaIcon(v.tipo)} mr-1"></i> <strong>${v.targa}</strong>
+                        </div>
+                        <i class="fas fa-circle ${color}" style="font-size:10px;"></i>
+                    </div>
+                    <small class="text-muted ml-4">${v.name}</small>
+                </a>
+            `;
+        });
+        $('#statusList').html(html);
+    }
+
+    function updateSelect(data) {
+        let sel = $('#vehicleSelect');
+        if (sel.children('option').length <= 1) {
+            data.forEach(v => {
+                sel.append(new Option(`${v.targa} - ${v.name}`, v.id));
+            });
+        }
+    }
+
+    // --- ACTIONS ---
+    function syncVehicles() {
+        if (!confirm("Vuoi sincronizzare i veicoli con Traccar?")) return;
+
+        // Use AWN or simple alert
+        let notifier = new AWN();
+        notifier.info("Sincronizzazione in corso...");
+
+        $.post('/api/tracking/sync')
+            .done(function (data) {
+                if (data.status === 'success') {
+                    notifier.success(`Sync Completato!<br>Aggiornati: ${data.updated}<br>Creati: ${data.created}`);
+                    fetchLiveData(); // Refresh map
+                } else {
+                    notifier.alert("Errore: " + data.error);
+                }
+            })
+            .fail(function () {
+                notifier.alert("Errore di comunicazione col server.");
+            });
+    }
+
+    function zoomToId(id) {
+        if (markers[id]) {
+            map.flyTo(markers[id].getLatLng(), 16);
+            markers[id].openPopup();
+            // Also select it in dropdown
+            $('#vehicleSelect').val(id);
+        }
+    }
+
+    function zoomToVehicle() {
+        let id = $('#vehicleSelect').val();
+        if (id) {
+            zoomToId(id);
+        } else {
+            // Fit all
+            let group = new L.featureGroup(Object.values(markers));
+            if (group.getLayers().length > 0) {
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+            }
+        }
+    }
+
+    function fetchWeather(lat, lon, id) {
+        let box = $(`#weather-box-${id}`);
+        box.html('<i class="fas fa-spinner fa-spin"></i> Caricamento...');
+
+        $.getJSON(`/api/weather?lat=${lat}&lon=${lon}`)
+            .done(function (w) {
+                if (w.current_weather) {
+                    let t = w.current_weather.temperature;
+                    let ws = w.current_weather.windspeed;
+                    box.html(`<b>${t}°C</b> <span class="mx-2">|</span> <i class="fas fa-wind"></i> ${ws} km/h`);
+                } else {
+                    box.html('N/A');
+                }
+            })
+            .fail(function () {
+                box.html('<span class="text-danger">Errore Meteo</span>');
+            });
+    }
+
+    // --- HISTORY ---
+    function loadHistory() {
+        let devId = $('#vehicleSelect').val();
+        if (!devId) { alert("Seleziona prima un veicolo."); return; }
+
+        let start = $('#historyStart').val();
+        let end = $('#historyEnd').val();
+        if (!start || !end) { alert("Inserisci date."); return; }
+
+        let isoStart = new Date(start).toISOString();
+        let isoEnd = new Date(end).toISOString();
+
+        // Clear previous
+        historyLayer.clearLayers();
+        if (playbackInterval) clearInterval(playbackInterval);
+
+        $.getJSON(`/api/tracking/history?deviceId=${devId}&from=${isoStart}&to=${isoEnd}`)
+            .done(function (data) {
+                if (!data || data.length === 0) {
+                    alert("Nessun percorso trovato.");
+                    return;
+                }
+
+                // Draw Line
+                let latlngs = data.map(p => [p.latitude, p.longitude]);
+                L.polyline(latlngs, { color: 'blue', weight: 4, opacity: 0.7 }).addTo(historyLayer);
+                map.fitBounds(latlngs);
+
+                // Enable Play
+                window.routePoints = latlngs;
+                $('#playBtn').prop('disabled', false);
+            })
+            .fail(function () { alert("Errore caricamento storico."); });
+    }
+
+    function playHistory() {
+        if (!window.routePoints || window.routePoints.length === 0) return;
+
+        if (historyMarker) map.removeLayer(historyMarker);
+        if (playbackInterval) clearInterval(playbackInterval);
+
+        let points = window.routePoints;
+        let i = 0;
+
+        // Create Play Marker
+        historyMarker = L.marker(points[0], {
+            icon: L.divIcon({
+                className: 'vehicle-marker moving',
+                html: '<i class="fas fa-crosshairs"></i>',
+                iconSize: [30, 30]
+            })
+        }).addTo(map);
+
+        playbackInterval = setInterval(() => {
+            if (i >= points.length) {
+                clearInterval(playbackInterval);
+                return;
+            }
+            historyMarker.setLatLng(points[i]);
+            map.panTo(points[i]); // Optional: Follow the marker
+            i++;
+        }, 200); // Speed
+    }
+
+    // Init
+    $(document).ready(function () {
+        // Init dates (last 24h default)
+        // ... omitted for brevity
+
+        fetchLiveData();
+        setInterval(fetchLiveData, 10000); // 10s poll
+    });
+
+</script>
+{% endblock %}

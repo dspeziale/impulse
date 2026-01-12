@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Riepilogo Presenze{% endblock %}
+
+{% block content %}
+<div class="card card-primary card-outline">
+    <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-calendar-check"></i> Riepilogo Presenze Giornaliere</h3>
+        {% if current_user.role.name == 'ADMINISTRATOR' %}
+        <div class="card-tools">
+            <div class="custom-control custom-switch">
+                <input type="checkbox" class="custom-control-input" id="showAllCheckbox">
+                <label class="custom-control-label" for="showAllCheckbox">Mostra Tutti gli Utenti</label>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <table id="presenzeTable" class="table table-bordered table-striped table-hover mt-3">
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Utente</th>
+                    <th>Entrata</th>
+                    <th>Uscita</th>
+                    <th>Ore</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        $('#presenzeTable').DataTable({
+            "responsive": true,
+            "lengthChange": true,
+            "autoWidth": false,
+            "ajax": {
+                "url": "/api/presenze/dt",
+                "data": function (d) {
+                    d.show_all = $('#showAllCheckbox').is(':checked');
+                }
+            },
+            "columns": [
+                { "data": "date" },
+                { "data": "user" },
+                { "data": "in" },
+                { "data": "out" },
+                { "data": "hours" },
+                { "data": "notes" }
+            ],
+            "order": [[0, "desc"]],
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/it-IT.json"
+            }
+        });
+
+        $('#showAllCheckbox').on('change', function () {
+            $('#presenzeTable').DataTable().ajax.reload();
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Messaging</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-compose">
+                    <i class="fas fa-pen"></i> Compose
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card card-primary card-outline">
+                    <div class="card-header">
+                        <h3 class="card-title">Inbox</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive mailbox-messages">
+                            <table class="table table-hover table-striped">
+                                <tbody>
+                                    {% for msg in received %}
+                                    <tr class="{{ 'font-weight-bold' if not msg.read_at else '' }}">
+                                        <td class="mailbox-name">{{ msg.sender.nome }} {{ msg.sender.cognome }}</td>
+                                        <td class="mailbox-subject"><b>{{ msg.subject }}</b> - {{ msg.body[:30] }}...
+                                        </td>
+                                        <td class="mailbox-date">{{ msg.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not received %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">No messages</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-secondary card-outline">
+                    <div class="card-header">
+                        <h3 class="card-title">Sent</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive mailbox-messages">
+                            <table class="table table-hover table-striped">
+                                <tbody>
+                                    {% for msg in sent %}
+                                    <tr>
+                                        <td class="mailbox-name">To: {{ msg.recipient.nome }} {{ msg.recipient.cognome
+                                            }}</td>
+                                        <td class="mailbox-subject"><b>{{ msg.subject }}</b> - {{ msg.body[:30] }}...
+                                        </td>
+                                        <td class="mailbox-date">{{ msg.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    {% if not sent %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">No sent messages</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Compose Modal -->
+<div class="modal fade" id="modal-compose">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">New Message</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('send_message') }}" method="post">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Recipient</label>
+                        <select name="recipient_id" class="form-control">
+                            {% for u in users %}
+                            <option value="{{ u.id }}">{{ u.nome }} {{ u.cognome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Subject</label>
+                        <input type="text" name="subject" class="form-control" placeholder="Subject:" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea name="body" class="form-control" style="height: 150px" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary"
+                        onclick="this.form.submit(); this.disabled=true;">Send</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

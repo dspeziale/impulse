@@ -1,0 +1,21 @@
+{
+    "name": "Impulse Dashboard",
+    "short_name": "Impulse",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#007bff",
+    "description": "Impulse Fleet Management System",
+    "icons": [
+        {
+            "src": "/static/img/impulse_logo.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/static/img/impulse_logo.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

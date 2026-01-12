@@ -1,91 +1,513 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AdminLTE 3 | Dashboard</title>
 
   <!-- Google Font: Source Sans Pro -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- AdminLTE -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
   <!-- Awesome Notifications -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/awesome-notifications/3.1.3/style.min.css">
+  <!-- DataTables -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/dataTables.bootstrap4.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap4.min.css">
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
 </head>
+
 <body class="hold-transition sidebar-mini layout-fixed">
-<div class="wrapper">
+  <div class="wrapper">
 
-  <!-- Navbar -->
-  <nav class="main-header navbar navbar-expand navbar-white navbar-light">
-    <!-- Left navbar links -->
-    <ul class="navbar-nav">
-      <li class="nav-item">
-        <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
-      </li>
-    </ul>
-  </nav>
-  <!-- /.navbar -->
+    <!-- Navbar -->
+    <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+      <!-- Left navbar links -->
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+        </li>
+        <li class="nav-item">
+          <a href="#" class="nav-link" style="height: auto; line-height: 1.2; padding-top: 8px;">
+            <div class="d-flex flex-column">
+              <span class="text-dark font-weight-bold" style="font-size: 1rem;">{{ current_user.nome }} {{
+                current_user.cognome }}</span>
+              <span class="text-muted" style="font-size: 0.75rem;">{{ current_user.role.value }}</span>
+            </div>
+          </a>
+        </li>
+      </ul>
 
-  <!-- Main Sidebar Container -->
-  <aside class="main-sidebar sidebar-dark-primary elevation-4">
-    <!-- Brand Logo -->
-    <a href="#" class="brand-link">
-      <span class="brand-text font-weight-light">Impulse App</span>
-    </a>
+      <!-- Right navbar links -->
+      <ul class="navbar-nav ml-auto">
+        <!-- Install PWA Button (Hidden by default) -->
+        <li class="nav-item" id="pwa-install-item" style="display: none;">
+          <a class="nav-link btn btn-outline-primary btn-sm mx-2" href="#" id="pwa-install-btn" role="button">
+            <i class="fas fa-download"></i> Install App
+          </a>
+        </li>
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-      <!-- Sidebar Menu -->
-      <nav class="mt-2">
-        <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-          <li class="nav-item">
-            <a href="/" class="nav-link">
-              <i class="nav-icon fas fa-tachometer-alt"></i>
-              <p>Dashboard</p>
+        <li class="nav-item">
+          <a class="nav-link" data-widget="fullscreen" href="#" role="button">
+            <i class="fas fa-expand-arrows-alt"></i>
+          </a>
+        </li>
+        <!-- Messages Dropdown Menu -->
+        <li class="nav-item dropdown">
+          <a class="nav-link" data-toggle="dropdown" href="#">
+            <i class="far fa-comments"></i>
+            {% if unread_msgs > 0 %}
+            <span class="badge badge-danger navbar-badge">{{ unread_msgs }}</span>
+            {% endif %}
+          </a>
+          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+            {% for msg in recent_msgs %}
+            <a href="#" class="dropdown-item" onclick="markMessageRead({{ msg.id }})">
+              <!-- Message Start -->
+              <div class="media">
+                <img src="{{ msg.sender.photo_url }}" alt="User Avatar" class="img-size-50 mr-3 img-circle">
+                <div class="media-body">
+                  <h3 class="dropdown-item-title">
+                    {{ msg.sender.nome }} {{ msg.sender.cognome }}
+                    <span class="float-right text-sm text-danger"><i class="fas fa-star"></i></span>
+                  </h3>
+                  <p class="text-sm">{{ msg.body[:30] }}...</p>
+                  <p class="text-sm text-muted"><i class="far fa-clock mr-1"></i> {{ msg.timestamp.strftime('%H:%M') }}
+                  </p>
+                </div>
+              </div>
+              <!-- Message End -->
             </a>
-          </li>
-        </ul>
-      </nav>
-      <!-- /.sidebar-menu -->
+            <div class="dropdown-divider"></div>
+            {% else %}
+            <span class="dropdown-item text-center text-muted">No recent messages</span>
+            <div class="dropdown-divider"></div>
+            {% endfor %}
+            <a href="{{ url_for('messages_view') }}" class="dropdown-item dropdown-footer">See All Messages</a>
+          </div>
+        </li>
+        <!-- Notifications Dropdown Menu -->
+        <li class="nav-item dropdown">
+          <a class="nav-link" data-toggle="dropdown" href="#">
+            <i class="far fa-bell"></i>
+            {% if unread_notifs > 0 %}
+            <span class="badge badge-warning navbar-badge">{{ unread_notifs }}</span>
+            {% endif %}
+          </a>
+          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+            <span class="dropdown-item dropdown-header">{{ unread_notifs }} Unread Notifications</span>
+            <div class="dropdown-divider"></div>
+            {% for notif in recent_notifs %}
+            <a href="#" class="dropdown-item" onclick="markRead({{ notif.id }})">
+              {% if notif.category == 'success' %}
+              <i class="fas fa-check-circle mr-2 text-success"></i>
+              {% elif notif.category == 'warning' %}
+              <i class="fas fa-exclamation-triangle mr-2 text-warning"></i>
+              {% elif notif.category == 'danger' %}
+              <i class="fas fa-exclamation-circle mr-2 text-danger"></i>
+              {% else %}
+              <i class="fas fa-info-circle mr-2 text-info"></i>
+              {% endif %}
+              {{ notif.title }}
+              <span class="float-right text-muted text-sm">{{ notif.timestamp.strftime('%H:%M') }}</span>
+              <p class="text-sm text-muted pl-4 text-truncate">{{ notif.message }}</p>
+            </a>
+            <div class="dropdown-divider"></div>
+            {% else %}
+            <span class="dropdown-item text-center text-muted">No new notifications</span>
+            {% endfor %}
+            <a href="#" class="dropdown-item dropdown-footer">See All Notifications</a>
+          </div>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('logout') }}" role="button">
+            <i class="fas fa-power-off"></i>
+          </a>
+        </li>
+      </ul>
+    </nav>
+    <!-- /.navbar -->
+
+    <!-- Main Sidebar Container -->
+    <aside class="main-sidebar sidebar-light-primary elevation-4">
+      <!-- Brand Logo -->
+      <a href="/" class="brand-link">
+        <img src="{{ url_for('static', filename='img/impulse_logo.png') }}" alt="Impulse Logo"
+          class="brand-image img-circle elevation-3" style="opacity: .8">
+        <span class="brand-text font-weight-light"><b>Impulse</b></span>
+      </a>
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <!-- Sidebar Menu -->
+        <nav class="mt-2">
+          <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+            <li class="nav-item">
+              <a href="/" class="nav-link">
+                <i class="nav-icon fas fa-tachometer-alt"></i>
+                <p>Dashboard</p>
+              </a>
+            </li>
+
+            <!-- Gestioni -->
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="nav-icon fas fa-folder"></i>
+                <p>
+                  Gestioni
+                  <i class="right fas fa-angle-left"></i>
+                </p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="{{ url_for('list_users') }}" class="nav-link">
+                    <i class="fas fa-users nav-icon"></i>
+                    <p>Utenti</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ url_for('list_cantieri') }}" class="nav-link">
+                    <i class="fas fa-hard-hat nav-icon"></i>
+                    <p>Cantieri</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ url_for('list_automezzi') }}" class="nav-link">
+                    <i class="fas fa-truck nav-icon"></i>
+                    <p>Automezzi</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ url_for('list_assenze') }}" class="nav-link">
+                    <i class="fas fa-calendar-times nav-icon"></i>
+                    <p>Assenze</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Operation -->
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="nav-icon fas fa-cogs"></i>
+                <p>
+                  Operation
+                  <i class="right fas fa-angle-left"></i>
+                </p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="{{ url_for('mobile_scan') }}" class="nav-link">
+                    <i class="fas fa-qrcode nav-icon"></i>
+                    <p>Timbra (Mobile)</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ url_for('list_presenze') }}" class="nav-link">
+                    <i class="fas fa-calendar-check nav-icon"></i>
+                    <p>Presenze</p>
+                  </a>
+                </li>
+                <li class="nav-item">
+                  <a href="{{ url_for('list_timbrature') }}" class="nav-link">
+                    <i class="fas fa-history nav-icon"></i>
+                    <p>Storico Timbrature</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Tracking -->
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="nav-icon fas fa-map-marked-alt"></i>
+                <p>
+                  Tracking
+                  <i class="right fas fa-angle-left"></i>
+                </p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="{{ url_for('tracking_live') }}" class="nav-link">
+                    <i class="fas fa-satellite-dish nav-icon"></i>
+                    <p>Live Map</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Amministrazione -->
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="nav-icon fas fa-shield-alt"></i>
+                <p>
+                  Amministrazione
+                  <i class="right fas fa-angle-left"></i>
+                </p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="{{ url_for('view_logs') }}" class="nav-link">
+                    <i class="fas fa-history nav-icon"></i>
+                    <p>Audit Logs</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Impostazioni -->
+            <li class="nav-item">
+              <a href="#" class="nav-link">
+                <i class="nav-icon fas fa-cog"></i>
+                <p>
+                  Impostazioni
+                  <i class="right fas fa-angle-left"></i>
+                </p>
+              </a>
+              <ul class="nav nav-treeview">
+                <li class="nav-item">
+                  <a href="{{ url_for('general_settings') }}" class="nav-link">
+                    <i class="fas fa-sliders-h nav-icon"></i>
+                    <p>Generale</p>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+          </ul>
+        </nav>
+        <!-- /.sidebar-menu -->
+      </div>
+      <!-- /.sidebar -->
+    </aside>
+
+    <!-- Content Wrapper. Contains page content -->
+    <div class="content-wrapper">
+      {% block content %}{% endblock %}
     </div>
-    <!-- /.sidebar -->
-  </aside>
+    <!-- /.content-wrapper -->
 
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    {% block content %}{% endblock %}
+    <footer class="main-footer">
+      <div class="float-right d-none d-sm-block">
+        <b>Version</b> 1.0.0
+        <button type="button" class="btn btn-tool" data-toggle="modal" data-target="#modal-system-info"
+          title="System Info">
+          <i class="fas fa-info-circle"></i>
+        </button>
+      </div>
+      <strong>Copyright &copy; 2026 Impulse.</strong> All rights reserved.
+    </footer>
   </div>
-  <!-- /.content-wrapper -->
+  <!-- ./wrapper -->
 
-  <footer class="main-footer">
-    <strong>Copyright &copy; 2026 Impulse.</strong> All rights reserved.
-  </footer>
-</div>
-<!-- ./wrapper -->
+  <!-- System Info Modal -->
+  <div class="modal fade" id="modal-system-info">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h4 class="modal-title"><i class="fas fa-server"></i> System Information</h4>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body" id="system-info-body">
+          <div class="text-center">
+            <i class="fas fa-circle-notch fa-spin fa-2x"></i><br>Loading...
+          </div>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" onclick="loadSystemInfo()">Refresh</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-<!-- Bootstrap 4 -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-<!-- AdminLTE App -->
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-<!-- Awesome Notifications -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/awesome-notifications/3.1.3/index.var.js"></script>
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <!-- Bootstrap 4 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- AdminLTE App -->
+  <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+  <!-- Awesome Notifications -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/awesome-notifications/3.1.3/index.var.js"></script>
+  <!-- DataTables & Plugins -->
+  <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap4.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+  <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap4.min.js"></script>
 
-<script>
+  <script>
     // Initialize AWN
     let notifier = new AWN();
-    
+
+    // PWA Logic
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
+          .then(reg => console.log('SW Registered', reg))
+          .catch(err => console.log('SW Registration Failed', err));
+      });
+    }
+
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      $('#pwa-install-item').show();
+    });
+
+    $('#pwa-install-btn').click(function (e) {
+      e.preventDefault();
+      $('#pwa-install-item').hide();
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the install prompt');
+          } else {
+            console.log('User dismissed the install prompt');
+          }
+          deferredPrompt = null;
+        });
+      }
+    });
+
     // Example usage exposed to global scope if needed, or used in child templates
     function showSuccess(msg) {
-        notifier.success(msg);
+      notifier.success(msg);
     }
     function showError(msg) {
-        notifier.alert(msg);
+      notifier.alert(msg);
     }
-</script>
-{% block scripts %}{% endblock %}
+
+    function markRead(notifId) {
+      fetch(`/notifications/read/${notifId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then(response => {
+        if (response.ok) {
+          location.reload();
+        }
+      });
+    }
+
+    function markMessageRead(msgId) {
+      fetch(`/messages/read/${msgId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then(response => {
+        if (response.ok) {
+          location.reload();
+        }
+      });
+    }
+
+    function loadSystemInfo() {
+      $('#system-info-body').html('<div class="text-center"><i class="fas fa-circle-notch fa-spin fa-2x"></i><br>Gathering stats...</div>');
+
+      fetch('/api/system-info')
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            $('#system-info-body').html('<div class="alert alert-danger">Error: ' + data.error + '</div>');
+            return;
+          }
+
+          let html = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong><i class="fab fa-linux"></i> System</strong><br>
+                        ${data.os.system} ${data.os.release}<br>
+                        <small class="text-muted">Arch: ${data.os.machine}</small></p>
+                    </div>
+                    <div class="col-md-6">
+                         <p><strong><i class="fas fa-power-off"></i> Boot Time</strong><br>
+                         ${data.os.boot_time}</p>
+                    </div>
+                </div>
+                <hr>
+                <p><strong><i class="fas fa-microchip"></i> Processor</strong><br>
+                <small>${data.os.processor}</small><br>
+                <span class="badge badge-info">${data.cpu.cores_physical} Phys Cores</span>
+                <span class="badge badge-secondary">${data.cpu.cores_logical} Log Cores</span>
+                <span class="badge badge-success">Freq: ${data.cpu.freq_current}</span>
+                </p>
+                
+                <div class="progress-group">
+                    <span class="progress-text">CPU Load</span>
+                    <span class="float-right"><b>${data.cpu.percent}</b>/100%</span>
+                    <div class="progress progress-sm">
+                      <div class="progress-bar bg-primary" style="width: ${data.cpu.percent}%"></div>
+                    </div>
+                </div>
+
+                <div class="progress-group">
+                    <span class="progress-text">Memory Usage</span>
+                    <span class="float-right"><b>${data.memory.using_percent}</b>% of ${data.memory.total}</span>
+                    <div class="progress progress-sm">
+                      <div class="progress-bar bg-warning" style="width: ${data.memory.percent}%"></div>
+                    </div>
+                    <small>Available: ${data.memory.available}</small>
+                </div>
+
+                <div class="progress-group">
+                    <span class="progress-text">Disk Space</span>
+                    <span class="float-right"><b>${data.disk.percent}</b>% of ${data.disk.total}</span>
+                    <div class="progress progress-sm">
+                      <div class="progress-bar bg-danger" style="width: ${data.disk.percent}%"></div>
+                    </div>
+                    <small>Free: ${data.disk.free}</small>
+                </div>
+                
+                <hr>
+                <p><strong><i class="fas fa-network-wired"></i> Network</strong><br>
+                Host: <code>${data.network.hostname}</code><br>
+                IP: <code>${data.network.ip}</code></p>
+                
+                <p class="text-right"><small>Python ${data.python_version}</small></p>
+            `;
+          $('#system-info-body').html(html);
+        })
+        .catch(err => {
+          $('#system-info-body').html('<div class="alert alert-danger">Failed to load info.</div>');
+        });
+    }
+
+    // Auto-load on modal open
+    $('#modal-system-info').on('show.bs.modal', function (e) {
+      loadSystemInfo();
+    })
+
+    // Flash Messages to AWN
+    {% with messages = get_flashed_messages(with_categories = true) %}
+    {% if messages %}
+    document.addEventListener('DOMContentLoaded', function () {
+      {% for category, message in messages %}
+      {% if category == 'error' or category == 'danger' %}
+      notifier.alert("{{ message }}");
+      {% elif category == 'success' %}
+      notifier.success("{{ message }}");
+      {% elif category == 'warning' %}
+      notifier.warning("{{ message }}");
+      {% else %}
+      notifier.info("{{ message }}");
+      {% endif %}
+      {% endfor %}
+    });
+    {% endif %}
+    {% endwith %}
+  </script>
+  {% block scripts %}{% endblock %}
 </body>
+
 </html>

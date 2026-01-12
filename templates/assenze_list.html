@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Gestione Assenze</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-add-assenza">
+                    <i class="fas fa-plus"></i> Richiedi Assenza
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-body">
+                <table id="assenzeTable" class="table table-bordered table-striped dt-responsive nowrap"
+                    style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Utente</th>
+                            <th>Tipo</th>
+                            <th>Dal</th>
+                            <th>Al</th>
+                            <th>Stato</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Assenza Modal -->
+<div class="modal fade" id="modal-add-assenza">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Nuova Richiesta Assenza</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('create_assenza') }}" method="post">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tipo Assenza</label>
+                        <select name="tipo" class="form-control" required>
+                            <option value="FERIE">Ferie</option>
+                            <option value="MALATTIA">Malattia</option>
+                            <option value="PERMESSO">Permesso</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label>Data Inizio</label>
+                                <input type="date" name="data_inizio" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label>Data Fine</label>
+                                <input type="date" name="data_fine" class="form-control" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Note</label>
+                        <textarea name="note" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Chiudi</button>
+                    <button type="submit" class="btn btn-primary">Invia Richiesta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        var table = $('#assenzeTable').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "/api/assenze/dt",
+                "type": "POST"
+            },
+            "columns": [
+                { "data": "utente" },
+                { "data": "tipo" },
+                { "data": "data_inizio" },
+                { "data": "data_fine" },
+                {
+                    "data": "stato",
+                    "render": function (data) {
+                        var color = 'secondary';
+                        if (data === 'Approvata') color = 'success';
+                        if (data === 'Rifiutata') color = 'danger';
+                        if (data === 'In Attesa') color = 'warning';
+                        return '<span class="badge badge-' + color + '">' + data + '</span>';
+                    }
+                },
+                {
+                    "data": null,
+                    "orderable": false,
+                    "render": function (data, type, row) {
+                        var buttons = '';
+                        // Show Approval buttons only for Admin and if Pending
+                        {% if current_user.role.value == 'ADMINISTRATOR' %}
+                        if (row.stato === 'In Attesa') {
+                            buttons += '<button class="btn btn-sm btn-success mr-1" onclick="updateStatus(' + row.id + ', \'Approvata\')"><i class="fas fa-check"></i></button>';
+                            buttons += '<button class="btn btn-sm btn-danger mr-1" onclick="updateStatus(' + row.id + ', \'Rifiutata\')"><i class="fas fa-times"></i></button>';
+                        }
+                        {% endif %}
+
+                        // Delete Button
+                        buttons += '<form class="d-inline ml-1" action="/assenze/delete/' + row.id + '" method="post" onsubmit="return confirm(\'Eliminare questa assenza?\');">' +
+                            '<button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>' +
+                            '</form>';
+
+                        return buttons;
+                    }
+                }
+            ]
+        });
+
+        window.updateStatus = function (id, status) {
+            if (confirm('Confermi di voler impostare lo stato a ' + status + '?')) {
+                $.post('/assenze/status/' + id, { status: status }, function (res) {
+                    if (res.success) {
+                        table.ajax.reload();
+                    } else {
+                        alert('Errore: ' + res.message);
+                    }
+                });
+            }
+        };
+    });
+</script>
+{% endblock %}

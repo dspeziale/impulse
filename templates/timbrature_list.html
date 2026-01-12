@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Timbrature{% endblock %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Storico Timbrature</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <!-- Optional: Add future export buttons here -->
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Elenco Timbrature</h3>
+
+                {% if current_user.role.name|upper == 'ADMINISTRATOR' %}
+                <div class="card-tools">
+                    <div class="custom-control custom-switch">
+                        <input type="checkbox" class="custom-control-input" id="showAllCheckbox">
+                        <label class="custom-control-label" for="showAllCheckbox">Mostra Tutti gli Utenti</label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <!-- /.card-header -->
+            <div class="card-body">
+                <table id="timbratureTable" class="table table-bordered table-striped" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Data/Ora</th>
+                            <th>Utente</th>
+                            <th>Cantiere</th>
+                            <th>Tipo</th>
+                            <th>Distanza</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            <!-- /.card-body -->
+        </div>
+        <!-- /.card -->
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        var table = $('#timbratureTable').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "responsive": true,
+            "ajax": {
+                "url": "/api/timbrature/dt",
+                "type": "POST",
+                "data": function (d) {
+                    d.show_all = $('#showAllCheckbox').is(':checked');
+                }
+            },
+            "columns": [
+                { "data": "timestamp" },
+                { "data": "utente" },
+                { "data": "cantiere" },
+                {
+                    "data": "tipo",
+                    "render": function (data) {
+                        // Data from Enum is 'Entrata' or 'Uscita' (Title Case)
+                        // Be safe and check upper
+                        var upper = data.toUpperCase();
+                        return upper === 'ENTRATA' ? '<span class="badge badge-success">ENTRATA</span>' : '<span class="badge badge-danger">USCITA</span>';
+                    }
+                },
+                { "data": "distanza" }
+            ],
+            "order": [[0, 'desc']] // Sort by Timestamp desc by default
+        });
+
+        $('#showAllCheckbox').change(function () {
+            table.ajax.reload();
+        });
+    });
+</script>
+{% endblock %}

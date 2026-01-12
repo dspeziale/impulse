@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Automezzi Management</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-add-automezzo">
+                    <i class="fas fa-plus"></i> Add Automezzo
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <div class="card-body">
+                <table id="automezziTable" class="table table-bordered table-striped dt-responsive nowrap"
+                    style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tipo</th>
+                            <th>Targa</th>
+                            <th>Stato</th>
+                            <th>Traccar ID</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Automezzo Modal -->
+<div class="modal fade" id="modal-add-automezzo">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Create New Automezzo</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('create_automezzo') }}" method="post">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select name="tipo" class="form-control" required>
+                            <option value="AUTO">Auto</option>
+                            <option value="FURGONE">Furgone</option>
+                            <option value="CAMION">Camion</option>
+                            <option value="SCOOTER">Scooter</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Targa</label>
+                        <input type="text" name="targa" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stato</label>
+                        <select name="stato" class="form-control">
+                            <option value="Operativo">Operativo</option>
+                            <option value="Manutenzione">Manutenzione</option>
+                            <option value="Fuori Servizio">Fuori Servizio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ID Traccar</label>
+                        <input type="text" name="id_traccar" class="form-control" placeholder="Optional">
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Automezzo Modal -->
+<div class="modal fade" id="modal-edit-automezzo">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Edit Automezzo</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="" method="post" id="editAutomezzoForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <select name="tipo" id="edit_tipo" class="form-control" required>
+                            <option value="AUTO">Auto</option>
+                            <option value="FURGONE">Furgone</option>
+                            <option value="CAMION">Camion</option>
+                            <option value="SCOOTER">Scooter</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Targa</label>
+                        <input type="text" name="targa" id="edit_targa" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Stato</label>
+                        <select name="stato" id="edit_stato" class="form-control">
+                            <option value="Operativo">Operativo</option>
+                            <option value="Manutenzione">Manutenzione</option>
+                            <option value="Fuori Servizio">Fuori Servizio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ID Traccar</label>
+                        <input type="text" name="id_traccar" id="edit_id_traccar" class="form-control"
+                            placeholder="Optional">
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Update Automezzo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        $('#automezziTable').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "/api/automezzi/dt",
+                "type": "POST"
+            },
+            "columns": [
+                { "data": "id" },
+                { "data": "tipo" },
+                { "data": "targa" },
+                {
+                    "data": "stato",
+                    "render": function (data) {
+                        var cls = 'success';
+                        if (data === 'Manutenzione') cls = 'warning';
+                        if (data === 'Fuori Servizio') cls = 'danger';
+                        return '<span class="badge badge-' + cls + '">' + data + '</span>';
+                    }
+                },
+                { "data": "id_traccar" },
+                {
+                    "data": null,
+                    "orderable": false,
+                    "render": function (data, type, row) {
+                        var editBtn = '<button class="btn btn-sm btn-warning edit-btn mr-1" ' +
+                            'data-id="' + row.id + '" ' +
+                            'data-tipo="' + row.tipo + '" ' +
+                            'data-targa="' + row.targa + '" ' +
+                            'data-stato="' + row.stato + '" ' +
+                            'data-id_traccar="' + (row.id_traccar || '') + '" ' +
+                            'title="Edit"><i class="fas fa-edit"></i></button>';
+
+                        var deleteBtn = '<form class="d-inline" action="/automezzi/delete/' + row.id + '" method="post" onsubmit="return confirm(\'Sei sicuro di voler eliminare questo automezzo?\');">' +
+                            '<button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>' +
+                            '</form>';
+
+                        return editBtn + deleteBtn;
+                    }
+                }
+            ]
+        });
+
+        // Edit Button Logic
+        $('#automezziTable tbody').on('click', '.edit-btn', function () {
+            var data = $(this).data();
+            var modal = $('#modal-edit-automezzo');
+
+            modal.find('#edit_tipo').val(data.tipo);
+            modal.find('#edit_targa').val(data.targa);
+            modal.find('#edit_stato').val(data.stato);
+            modal.find('#edit_id_traccar').val(data.id_traccar);
+
+            modal.find('#editAutomezzoForm').attr('action', '/automezzi/update/' + data.id);
+
+            modal.modal('show');
+        });
+    });
+</script>
+{% endblock %}

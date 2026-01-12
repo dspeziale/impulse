@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Users Management</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-add-user">
+                    <i class="fas fa-plus"></i> Add User
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <div class="card-body">
+                <table id="usersTable" class="table table-bordered table-striped dt-responsive nowrap"
+                    style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Photo</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="modal-add-user">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Create New User</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('create_user') }}" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" name="nome" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="cognome" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role" class="form-control">
+                            <option value="ADMINISTRATOR">Administrator</option>
+                            <option value="SUPERVISOR">Supervisor</option>
+                            <option value="OPERATOR">Operator</option>
+                            <option value="USER" selected>User</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="photo">Photo</label>
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" name="photo" id="photo">
+                            <label class="custom-file-label" for="photo">Choose file</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="this.form.submit(); this.disabled=true;">Save
+                        & Invite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="modal-edit-user">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Edit User</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="editUserForm" action="" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" name="nome" id="edit_nome" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="cognome" id="edit_cognome" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" id="edit_email" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select name="role" id="edit_role" class="form-control">
+                            <option value="ADMINISTRATOR">Administrator</option>
+                            <option value="SUPERVISOR">Supervisor</option>
+                            <option value="OPERATOR">Operator</option>
+                            <option value="USER">User</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_photo">Photo (Leave empty to keep current)</label>
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" name="photo" id="edit_photo">
+                            <label class="custom-file-label" for="edit_photo">Choose file</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary"
+                        onclick="this.form.submit(); this.disabled=true;">Update User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        var table = $('#usersTable').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "responsive": true,
+            "ajax": {
+                "url": "/api/users/dt",
+                "type": "POST"
+            },
+            "columns": [
+                { "data": "id" },
+                {
+                    "data": "photo_url",
+                    "render": function (data, type, row) {
+                        return '<img src="' + data + '" class="img-circle" style="width: 40px; height: 40px;">';
+                    },
+                    "orderable": false
+                },
+                { "data": "name" },
+                { "data": "email" },
+                {
+                    "data": "role",
+                    "render": function (data) {
+                        return '<span class="badge badge-info">' + data + '</span>';
+                    }
+                },
+                {
+                    "data": "status",
+                    "render": function (data, type, row) {
+                        if (row.is_active) {
+                            return '<span class="badge badge-success">Active</span>';
+                        } else {
+                            return '<span class="badge badge-danger">Suspended</span>';
+                        }
+                    }
+                },
+                {
+                    "data": null,
+                    "orderable": false,
+                    "render": function (data, type, row) {
+                        var activeBtn = '';
+                        if (row.is_active) {
+                            activeBtn = '<form action="/users/status/' + row.id + '" method="post" style="display:inline;">' +
+                                '<button type="submit" class="btn btn-sm btn-danger ml-1" title="Suspend User" onclick="return confirm(\'Are you sure you want to suspend this user?\')">' +
+                                '<i class="fas fa-ban"></i></button></form>';
+                        } else {
+                            activeBtn = '<form action="/users/status/' + row.id + '" method="post" style="display:inline;">' +
+                                '<button type="submit" class="btn btn-sm btn-success ml-1" title="Activate User" onclick="return confirm(\'Are you sure you want to activate this user?\')">' +
+                                '<i class="fas fa-check"></i></button></form>';
+                        }
+
+                        // Edit Button logic handled via event delegation below to avoid messy HTML string
+                        return '<button class="btn btn-sm btn-warning edit-btn" ' +
+                            'data-id="' + row.id + '" ' +
+                            'data-nome="' + row.nome + '" ' +
+                            'data-cognome="' + row.cognome + '" ' +
+                            'data-email="' + row.email + '" ' +
+                            'data-role="' + row.role_raw + '" ' +
+                            '><i class="fas fa-edit"></i></button>' + activeBtn;
+                    }
+                }
+            ]
+        });
+
+        // Edit Button Click Handler
+        $('#usersTable tbody').on('click', '.edit-btn', function () {
+            var data = $(this).data();
+            var modal = $('#modal-edit-user');
+
+            modal.find('.modal-body #edit_nome').val(data.nome);
+            modal.find('.modal-body #edit_cognome').val(data.cognome);
+            modal.find('.modal-body #edit_email').val(data.email);
+            modal.find('.modal-body #edit_role').val(data.role);
+            modal.find('#editUserForm').attr('action', '/users/update/' + data.id);
+
+            modal.modal('show');
+        });
+
+        // Custom File Input Label
+        $(".custom-file-input").on("change", function () {
+            var fileName = $(this).val().split("\\").pop();
+            $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
+        });
+    });
+</script>
+{% endblock %}
+```

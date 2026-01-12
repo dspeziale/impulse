@@ -2,3 +2,9 @@ flask
 psycopg2-binary
 sqlalchemy
 python-dotenv
+flask-login
+werkzeug
+qrcode
+pillow
+psutil
+requests

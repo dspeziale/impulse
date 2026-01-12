@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1>Cantieri Management</h1>
+            </div>
+            <div class="col-sm-6 text-right">
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-add-cantiere">
+                    <i class="fas fa-plus"></i> Add Cantiere
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="card">
+            <div class="card-body">
+                <table id="cantieriTable" class="table table-bordered table-striped dt-responsive nowrap"
+                    style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Città</th>
+                            <th>Indirizzo</th>
+                            <th>Stato</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Add Cantiere Modal -->
+<div class="modal fade" id="modal-add-cantiere">
+    <div class="modal-dialog modal-lg"> <!-- Large modal for Map -->
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Create New Cantiere</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('create_cantiere') }}" method="post" id="createCantiereForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Nome Cantiere</label>
+                                <input type="text" name="nome" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Città</label>
+                                <input type="text" name="citta" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Indirizzo</label>
+                                <input type="text" name="indirizzo" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Coordinate GPS (Lat, Lon)</label>
+                                <input type="text" name="coordinate_gps" id="coordinate_gps" class="form-control"
+                                    placeholder="Click on map to set" readonly required>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="form-group">
+                                        <label>Orario Inizio</label>
+                                        <input type="time" name="orario_lavoro_inizio" class="form-control">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-group">
+                                        <label>Orario Fine</label>
+                                        <input type="time" name="orario_lavoro_fine" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Posizione Cantiere</label>
+                            <div class="input-group mb-2">
+                                <input type="text" id="map-search-input" class="form-control"
+                                    placeholder="Cerca indirizzo per centrare la mappa...">
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button"
+                                        id="btn-search-map">Cerca</button>
+                                </div>
+                            </div>
+                            <div id="map" style="height: 300px; width: 100%;"></div>
+                            <small class="text-muted">Clicca sulla mappa o usa la ricerca per posizionare il
+                                cantiere.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save & Generate QR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Modal (Preview) -->
+<div class="modal fade" id="modal-qr-preview">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Cantiere QR Code</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <h3 id="qr-cantiere-nome"></h3>
+                <img id="qr-image" src="" alt="QR Code" class="img-fluid mb-2" style="max-height: 300px;">
+                <p id="qr-cantiere-indirizzo" class="text-muted"></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <a href="#" id="download-qr-btn" class="btn btn-success" download="qrcode.png">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Cantiere Modal -->
+<div class="modal fade" id="modal-edit-cantiere">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Edit Cantiere</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="" method="post" id="editCantiereForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Nome Cantiere</label>
+                                <input type="text" name="nome" id="edit_nome" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Città</label>
+                                <input type="text" name="citta" id="edit_citta" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Indirizzo</label>
+                                <input type="text" name="indirizzo" id="edit_indirizzo" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Coordinate GPS (Lat, Lon)</label>
+                                <input type="text" name="coordinate_gps" id="edit_coordinate_gps" class="form-control"
+                                    placeholder="Click on map to set" readonly required>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="form-group">
+                                        <label>Orario Inizio</label>
+                                        <input type="time" name="orario_lavoro_inizio" id="edit_orario_lavoro_inizio"
+                                            class="form-control">
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-group">
+                                        <label>Orario Fine</label>
+                                        <input type="time" name="orario_lavoro_fine" id="edit_orario_lavoro_fine"
+                                            class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Posizione Cantiere</label>
+                            <!-- Search Map Edit -->
+                            <div class="input-group mb-2">
+                                <input type="text" id="edit-map-search-input" class="form-control"
+                                    placeholder="Cerca indirizzo...">
+                                <div class="input-group-append">
+                                    <button class="btn btn-outline-secondary" type="button"
+                                        id="btn-edit-search-map">Cerca</button>
+                                </div>
+                            </div>
+                            <div id="map_edit" style="height: 300px; width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Update Cantiere</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script>
+    $(document).ready(function () {
+        var table = $('#cantieriTable').DataTable({
+            "processing": true,
+            "serverSide": true,
+            "ajax": {
+                "url": "/api/cantieri/dt",
+                "type": "POST"
+            },
+            "columns": [
+                { "data": "id" },
+                { "data": "nome" },
+                { "data": "citta" },
+                { "data": "indirizzo" },
+                {
+                    "data": "stato",
+                    "render": function (data) {
+                        return data === 'Attivo' ? '<span class="badge badge-success">Attivo</span>' : '<span class="badge badge-secondary">Chiuso</span>';
+                    }
+                },
+                {
+                    "data": null,
+                    "orderable": false,
+                    "render": function (data, type, row) {
+                        // Edit Button
+                        var editBtn = '<button class="btn btn-sm btn-warning edit-btn mr-1" ' +
+                            'data-id="' + row.id + '" ' +
+                            'data-nome="' + row.nome + '" ' +
+                            'data-citta="' + row.citta + '" ' +
+                            'data-indirizzo="' + row.indirizzo + '" ' +
+                            'data-lat="' + (row.lat || '') + '" ' +
+                            'data-lon="' + (row.lon || '') + '" ' +
+                            'data-start="' + (row.orario_inizio || '') + '" ' +
+                            'data-end="' + (row.orario_fine || '') + '" ' +
+                            'title="Edit"><i class="fas fa-edit"></i></button>';
+
+                        var qrBtn = '<button class="btn btn-sm btn-info qr-btn mr-1" ' +
+                            'data-id="' + row.id + '" ' +
+                            'data-nome="' + row.nome + '" ' +
+                            'data-indirizzo="' + row.indirizzo + ' ' + row.citta + '" ' +
+                            'title="Show QR"><i class="fas fa-qrcode"></i></button>';
+
+                        var deleteBtn = '<form class="d-inline" action="/cantieri/delete/' + row.id + '" method="post" onsubmit="return confirm(\'Sei sicuro di voler eliminare questo cantiere?\');">' +
+                            '<button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>' +
+                            '</form>';
+                        return editBtn + qrBtn + deleteBtn;
+                    }
+                }
+            ]
+        });
+
+        // Initialize Map in Add Modal
+        var map = null;
+        var marker = null;
+
+        $('#modal-add-cantiere').on('shown.bs.modal', function () {
+            if (!map) {
+                map = L.map('map').setView([41.9028, 12.4964], 6);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+                map.on('click', function (e) {
+                    var lat = e.latlng.lat.toFixed(6);
+                    var lng = e.latlng.lng.toFixed(6);
+                    updateMarker(lat, lng);
+                });
+            } else {
+                map.invalidateSize();
+            }
+        });
+
+        function updateMarker(lat, lng) {
+            $('#coordinate_gps').val(lat + "," + lng);
+            var latLng = new L.LatLng(lat, lng);
+            if (marker) marker.setLatLng(latLng);
+            else marker = L.marker(latLng).addTo(map);
+            map.flyTo(latLng, 16);
+        }
+
+        // Search Button Logic (Add)
+        $('#btn-search-map').click(function () {
+            var query = $('#map-search-input').val();
+            if (query) {
+                $.get('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query), function (data) {
+                    if (data && data.length > 0) {
+                        updateMarker(data[0].lat, data[0].lon);
+                    } else { alert("Indirizzo non trovato."); }
+                });
+            }
+        });
+
+
+        // --- EDIT MODAL LOGIC ---
+        var mapEdit = null;
+        var markerEdit = null;
+
+        $('#cantieriTable tbody').on('click', '.edit-btn', function () {
+            var data = $(this).data();
+            var modal = $('#modal-edit-cantiere');
+
+            // Populate Fields
+            modal.find('#edit_nome').val(data.nome);
+            modal.find('#edit_citta').val(data.citta);
+            modal.find('#edit_indirizzo').val(data.indirizzo);
+            modal.find('#edit_orario_lavoro_inizio').val(data.start);
+            modal.find('#edit_orario_lavoro_fine').val(data.end);
+
+            // Set Form Action
+            modal.find('#editCantiereForm').attr('action', '/cantieri/update/' + data.id);
+
+            // Set Coordinates
+            var lat = data.lat;
+            var lon = data.lon;
+
+            if (lat && lon) {
+                modal.find('#edit_coordinate_gps').val(lat + "," + lon);
+            } else {
+                modal.find('#edit_coordinate_gps').val("");
+            }
+
+            modal.modal('show');
+
+            // Re-init map after modal shows to ensure size
+            setTimeout(function () {
+                if (!mapEdit) {
+                    mapEdit = L.map('map_edit').setView([41.9028, 12.4964], 6);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapEdit);
+
+                    mapEdit.on('click', function (e) {
+                        var lat = e.latlng.lat.toFixed(6);
+                        var lng = e.latlng.lng.toFixed(6);
+                        updateMarkerEdit(lat, lng);
+                    });
+                } else {
+                    mapEdit.invalidateSize();
+                }
+
+                if (lat && lon && !isNaN(lat) && !isNaN(lon)) {
+                    var latLng = new L.LatLng(lat, lon);
+                    updateMarkerEdit(lat, lon);
+                    mapEdit.setView(latLng, 16);
+                } else {
+                    mapEdit.setView([41.9028, 12.4964], 6);
+                    if (markerEdit) mapEdit.removeLayer(markerEdit);
+                    markerEdit = null;
+                }
+            }, 500);
+        });
+
+        function updateMarkerEdit(lat, lng) {
+            $('#edit_coordinate_gps').val(lat + "," + lng);
+            var latLng = new L.LatLng(lat, lng);
+            if (markerEdit) markerEdit.setLatLng(latLng);
+            else markerEdit = L.marker(latLng).addTo(mapEdit);
+            mapEdit.flyTo(latLng, 16);
+        }
+
+        // Search Button Logic (Edit)
+        $('#btn-edit-search-map').click(function () {
+            var query = $('#edit-map-search-input').val();
+            if (query) {
+                $.get('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query), function (data) {
+                    if (data && data.length > 0) {
+                        updateMarkerEdit(data[0].lat, data[0].lon);
+                    } else { alert("Indirizzo non trovato."); }
+                });
+            }
+        });
+
+
+        // QR Btn Handler
+        $('#cantieriTable tbody').on('click', '.qr-btn', function () {
+            var data = $(this).data();
+            $('#qr-cantiere-nome').text(data.nome);
+            $('#qr-cantiere-indirizzo').text(data.indirizzo);
+            var qrUrl = `/cantieri/qr/${data.id}`;
+            $('#qr-image').attr('src', qrUrl);
+            $('#download-qr-btn').attr('href', qrUrl);
+            $('#modal-qr-preview').modal('show');
+        });
+    });
+</script>
+{% endblock %}
